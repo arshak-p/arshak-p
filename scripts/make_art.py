@@ -14,8 +14,14 @@ def call(url, data=None):
         return json.loads(r.read().decode())
 
 # ---------- data ----------
-q = 'query($l:String!){user(login:$l){contributionsCollection{contributionCalendar{totalContributions weeks{contributionDays{date contributionCount}}}}}}'
-cal = call('https://api.github.com/graphql', {'query': q, 'variables': {'l': USER}})['data']['user']['contributionsCollection']['contributionCalendar']
+q = '''query($l:String!){user(login:$l){contributionsCollection{
+  contributionCalendar{totalContributions weeks{contributionDays{date contributionCount}}}
+  commitContributionsByRepository(maxRepositories:100){repository{nameWithOwner}}
+  pullRequestContributionsByRepository(maxRepositories:100){repository{nameWithOwner}}
+  issueContributionsByRepository(maxRepositories:100){repository{nameWithOwner}}}}}'''
+cc = call('https://api.github.com/graphql', {'query': q, 'variables': {'l': USER}})['data']['user']['contributionsCollection']
+cal = cc['contributionCalendar']
+worked_on = {x['repository']['nameWithOwner'] for k in ('commitContributionsByRepository', 'pullRequestContributionsByRepository', 'issueContributionsByRepository') for x in cc[k]}
 weeks = [[(d['date'], d['contributionCount']) for d in w['contributionDays']] for w in cal['weeks']]
 days = [d for w in weeks for d in w]
 total = cal['totalContributions']
@@ -46,6 +52,16 @@ for r in own:
     if r['language']: langs[r['language']] = langs.get(r['language'], 0) + 1
 top = sorted(langs.items(), key=lambda x: -x[1])[:5]
 best_day = max(days, key=lambda d: d[1]) if days else ('', 0)
+total_prs = call('https://api.github.com/search/issues?q=author:%s+type:pr&per_page=1' % USER)['total_count']
+total_issues = call('https://api.github.com/search/issues?q=author:%s+type:issue&per_page=1' % USER)['total_count']
+lang_bytes = {}
+for r in own:
+    try:
+        for k, v in call('https://api.github.com/repos/%s/%s/languages' % (USER, r['name'])).items(): lang_bytes[k] = lang_bytes.get(k, 0) + v
+    except Exception: pass
+LCOL = {'JavaScript': '#f1e05a', 'TypeScript': '#3178c6', 'Python': '#3572A5', 'HTML': '#e34c26', 'CSS': '#7c5cbf', 'PHP': '#8892bf', 'SCSS': '#c6538c', 'Dart': '#00B4AB', 'Jupyter Notebook': '#DA5B0B', 'PowerShell': '#3a6ea5', 'Shell': '#89e051'}
+lt = sum(lang_bytes.values()) or 1
+top_langs = sorted(lang_bytes.items(), key=lambda x: -x[1])[:6]
 
 # ---------- shared look (dark and light) ----------
 STYLE = """
@@ -91,17 +107,19 @@ heat = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" h
 open(os.path.join(OUT, 'contrib-heatmap.svg'), 'w', encoding='utf-8').write(heat)
 
 # ---------- stats card (420 x 380, same height as the portrait next to it) ----------
-def stat(x, y, big, small, delay):
-    return '<g class="fade" style="animation-delay:%.1fs"><text x="%d" y="%d" font-size="34" font-weight="800" fill="var(--accent)" style="fill:var(--accent)">%s</text><text x="%d" y="%d" font-size="12" class="mute">%s</text></g>' % (delay, x, y, html.escape(str(big)), x, y + 20, small)
-grid = (stat(28, 92, format(total, ','), 'contributions, last year', .2) + stat(222, 92, cur, 'day streak (current)', .35) +
-        stat(28, 170, longest, 'longest streak (days)', .5) + stat(222, 170, u['public_repos'], 'public repositories', .65) +
-        stat(28, 248, u['followers'], 'followers', .8) + stat(222, 248, stars, 'stars earned', .95))
-tmax = max([n for _, n in top] + [1])
-bars = '<text x="28" y="298" font-size="12" font-weight="700" class="mute">MOST USED LANGUAGES</text>'
-for i, (name, n) in enumerate(top[:4]):
-    y = 314 + i * 16
-    bars += '<text x="28" y="%d" font-size="11">%s</text><rect x="120" y="%d" width="%d" height="8" rx="4" class="bar" fill="var(--l%d)" style="animation-delay:%.1fs"/>' % (y + 8, html.escape(name), y, int(250 * n / tmax), 3 if i % 2 == 0 else 4, 1.0 + i * .15)
-stats = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 380" width="420" height="380" role="img" aria-label="GitHub stats for %s">%s<rect width="420" height="380" rx="14" fill="var(--bg)" stroke="var(--line)"/><text x="28" y="44" class="mono" font-size="15" style="fill:var(--accent)">%s@github ~ $ ./stats.sh</text><line x1="28" y1="58" x2="392" y2="58" stroke="var(--line)"/>%s%s</svg>\n' % (
-    USER, STYLE, USER.split('-')[0], grid, bars)
+rows = [('Contributions (last year)', format(total, ',')), ('Total pull requests', total_prs), ('Total issues', total_issues),
+        ('Repositories worked on (last year)', len(worked_on)), ('Public repositories', u['public_repos']), ('Stars earned', stars),
+        ('Streak: current / longest', '%d / %d days' % (cur, longest))]
+lines = ''
+for i, (k, v) in enumerate(rows):
+    y = 86 + i * 25
+    lines += '<g class="fade" style="animation-delay:%.2fs"><circle cx="34" cy="%d" r="3.5" style="fill:var(--accent)"/><text x="46" y="%d" font-size="13" class="mute">%s</text><text x="392" y="%d" font-size="14" font-weight="700" text-anchor="end">%s</text></g>' % (.15 + i * .1, y - 4, y, html.escape(k), y, html.escape(str(v)))
+langs_svg = '<text x="28" y="288" font-size="12" font-weight="700" class="mute">TOP LANGUAGES</text>'
+for i, (name, nbytes) in enumerate(top_langs):
+    col, row = i % 2, i // 2
+    x, y = 28 + col * 196, 312 + row * 24
+    langs_svg += '<g class="fade" style="animation-delay:%.2fs"><circle cx="%d" cy="%d" r="5" fill="%s"/><text x="%d" y="%d" font-size="12.5">%s <tspan class="mute">%.1f%%</tspan></text></g>' % (1.0 + i * .12, x + 5, y - 4, LCOL.get(name, '#8b949e'), x + 18, y, html.escape(name), 100 * nbytes / lt)
+stats = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 380" width="420" height="380" role="img" aria-label="GitHub stats for %s">%s<rect width="420" height="380" rx="14" fill="var(--bg)" stroke="var(--line)"/><text x="28" y="40" class="mono" font-size="15" style="fill:var(--accent)">%s@github ~ $ ./stats.sh</text><line x1="28" y1="54" x2="392" y2="54" stroke="var(--line)"/>%s<line x1="28" y1="268" x2="392" y2="268" stroke="var(--line)"/>%s</svg>\n' % (
+    USER, STYLE, USER.split('-')[0], lines, langs_svg)
 open(os.path.join(OUT, 'stats.svg'), 'w', encoding='utf-8').write(stats)
-print('ok: %d contributions, streak %d (longest %d), %d repos, %d followers, %d stars, languages %s' % (total, cur, longest, u['public_repos'], u['followers'], stars, top))
+print('ok: %d contributions, %d PRs, %d issues, %d repos worked on, streak %d/%d, languages %s' % (total, total_prs, total_issues, len(worked_on), cur, longest, [(n, round(100*b/lt,1)) for n, b in top_langs]))
