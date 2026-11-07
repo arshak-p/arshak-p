@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 160" width="1200" height="160" role="img" aria-label="Let's build something great together">
+  <defs><clipPath id="c"><rect width="1200" height="160" rx="22"/></clipPath><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#10493A"/><stop offset="1" stop-color="#01190E"/></linearGradient></defs>
+  <g clip-path="url(#c)"><rect width="1200" height="160" fill="url(#bg)"/>
+    <path d="M0 110 C200 70 350 150 560 110 S900 70 1200 112 V160 H0Z" fill="#19C652" opacity=".2"><animateTransform attributeName="transform" type="translate" values="0 0;-70 5;0 0" dur="9s" repeatCount="indefinite"/></path>
+    <path d="M0 130 C240 100 380 160 620 128 S940 100 1200 132 V160 H0Z" fill="#F7F7EF" opacity=".08"><animateTransform attributeName="transform" type="translate" values="0 0;60 -4;0 0" dur="12s" repeatCount="indefinite"/></path>
+    <text x="600" y="62" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="34" font-weight="800" fill="#F7F7EF" letter-spacing="-1">Let's build something great together.</text>
+    <text x="600" y="96" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="19" fill="#7BE8A0">Open to freelance and agency projects</text>
+  </g>
+</svg>
