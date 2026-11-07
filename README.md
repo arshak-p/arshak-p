@@ -19,7 +19,7 @@
 
 <h3><code>arshak@github ~ $ ./activity.sh</code></h3>
 
-<img src="contrib-heatmap.svg" width="860" alt="Animated contribution heatmap for the last year"/>
+<img src="snake.svg" width="860" alt="A snake eating the last year of GitHub contributions"/>
 
 </div>
 
